@@ -1,0 +1,30 @@
+{
+  "name": "void-code",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "void-code": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "chalk": "^5.6.2",
+    "diff": "^9.0.0",
+    "dotenv": "^17.4.2",
+    "glob": "^13.0.6",
+    "marked": "^15.0.12",
+    "marked-terminal": "^7.3.0",
+    "openai": "^6.45.0"
+  },
+  "devDependencies": {
+    "@types/diff": "^7.0.2",
+    "@types/node": "^26.0.1",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}
