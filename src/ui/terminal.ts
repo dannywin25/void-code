@@ -2,9 +2,22 @@ import * as readline from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import { LoopUI } from "../agent/loop.js";
 import { renderMarkdown } from "./markdown.js";
+import { completeSlash } from "./commands.js";
 
 export class Terminal implements LoopUI {
-  private rl = readline.createInterface({ input: stdin, output: stdout });
+  // 候选源：late-bind，启动加载完命令/skill 后由 index 设置
+  private completionSource: () => string[] = () => [];
+
+  private rl = readline.createInterface({
+    input: stdin,
+    output: stdout,
+    completer: (line: string): [string[], string] => [completeSlash(line, this.completionSource()), line],
+  });
+
+  // 设置 Tab 补全的候选（斜杠命令 + /skill <name>）
+  setCompletions(getCompletions: () => string[]): void {
+    this.completionSource = getCompletions;
+  }
 
   async prompt(): Promise<string> {
     const line = await this.rl.question("\n> ");

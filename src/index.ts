@@ -15,7 +15,7 @@ import { Session } from "./context/session.js";
 import { buildSystemPrompt } from "./context/system-prompt.js";
 import { Terminal } from "./ui/terminal.js";
 import { runTurn } from "./agent/loop.js";
-import { handleCommand } from "./ui/commands.js";
+import { handleCommand, SLASH_COMMANDS } from "./ui/commands.js";
 import { parseArgs } from "./cli.js";
 import { SessionStore, sanitizeMessages } from "./context/store.js";
 import { compactIfNeeded } from "./context/compact.js";
@@ -52,6 +52,8 @@ async function main(): Promise<void> {
   registry.register(makeSkillTool(skills));
 
   const ui = new Terminal();
+  // Tab 补全：斜杠命令 + /skill <name>
+  ui.setCompletions(() => [...SLASH_COMMANDS, ...skills.map((s) => `/skill ${s.name}`)]);
   const store = new SessionStore();
   const args = parseArgs(process.argv.slice(2));
 

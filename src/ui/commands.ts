@@ -22,6 +22,14 @@ export const INIT_PROMPT = `请分析当前项目并生成或更新一份 CLAUDE
 3. 用 write_file 写入 ./CLAUDE.md。若已存在 CLAUDE.md，先用 read_file 读它、在其基础上更新。
 内容要简洁、面向 AI 助手。`;
 
+// 供 Tab 补全用的斜杠命令清单（不含 /skill <name>，那部分由 skill 名动态补）
+export const SLASH_COMMANDS = ["/help", "/tools", "/model", "/skills", "/clear", "/init", "/exit"];
+
+// 从候选里筛出以当前输入为前缀的项（Tab 补全用）
+export function completeSlash(line: string, candidates: string[]): string[] {
+  return candidates.filter((c) => c.startsWith(line));
+}
+
 export function handleCommand(input: string, ctx: CommandContext): CommandResult {
   if (!input.startsWith("/")) return { handled: false };
 
