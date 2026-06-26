@@ -1,5 +1,9 @@
 import "dotenv/config";
+import { join } from "node:path";
+import { homedir } from "node:os";
 import { loadConfig } from "./config.js";
+import { loadSkills, renderSkillsForPrompt } from "./skills/loader.js";
+import { makeSkillTool } from "./skills/tool.js";
 import { OpenAICompatibleProvider } from "./provider/openai-compatible.js";
 import { ToolRegistry } from "./tools/registry.js";
 import { readFileTool } from "./tools/read.js";
@@ -16,6 +20,9 @@ import { parseArgs } from "./cli.js";
 import { SessionStore, sanitizeMessages } from "./context/store.js";
 import { compactIfNeeded } from "./context/compact.js";
 import { loadProjectContext, defaultGlobalDir } from "./context/project-context.js";
+import { loadMcpConfig } from "./mcp/config.js";
+import { connectAndRegisterMcp } from "./mcp/register.js";
+import { McpClient } from "./mcp/client.js";
 
 async function main(): Promise<void> {
   let config;
@@ -38,13 +45,20 @@ async function main(): Promise<void> {
     registry.register(tool);
   }
 
+  const skills = await loadSkills([
+    join(process.cwd(), ".void-code", "skills"),
+    join(homedir(), ".void-code", "skills"),
+  ]);
+  registry.register(makeSkillTool(skills));
+
   const ui = new Terminal();
   const store = new SessionStore();
   const args = parseArgs(process.argv.slice(2));
 
   const baseSystemPrompt =
     buildSystemPrompt(process.cwd(), process.platform) +
-    (await loadProjectContext(process.cwd(), defaultGlobalDir()));
+    (await loadProjectContext(process.cwd(), defaultGlobalDir())) +
+    renderSkillsForPrompt(skills);
 
   let session: Session;
   let sessionId: string;
@@ -71,9 +85,24 @@ async function main(): Promise<void> {
     createdAt = new Date().toISOString();
   }
 
+  let mcpClients: McpClient[] = [];
+  try {
+    const servers = await loadMcpConfig(join(process.cwd(), ".mcp.json"));
+    if (servers.length > 0) {
+      ui.info(`正在连接 ${servers.length} 个 MCP server…`);
+      mcpClients = await connectAndRegisterMcp(servers, registry, (m) => ui.info(m));
+    }
+  } catch (e) {
+    ui.info(`读取 .mcp.json 失败，已跳过 MCP：${(e as Error).message}`);
+  }
+
+  const closeMcp = async () => {
+    for (const c of mcpClients) await c.close().catch(() => {});
+  };
+
   ui.info(`void-code 已启动（模型 ${config.model}）。输入需求，或 /help 查看命令，exit 退出。`);
 
-  const ctx = { session, registry, model: config.model };
+  const ctx = { session, registry, model: config.model, skills };
   const deps = { provider, registry, session, ui, maxIterations: config.maxIterations };
 
   let totalPrompt = 0;
@@ -98,8 +127,11 @@ async function main(): Promise<void> {
       return;
     }
     if (pendingExit) {
-      ui.close();
-      process.exit(0);
+      void closeMcp().finally(() => {
+        ui.close();
+        process.exit(0);
+      });
+      return;
     }
     pendingExit = true;
     ui.info("再按一次 Ctrl+C 退出。");
@@ -158,6 +190,7 @@ async function main(): Promise<void> {
     }
   }
 
+  await closeMcp();
   ui.close();
 }
 

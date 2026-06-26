@@ -12,7 +12,12 @@ function makeCtx() {
     async execute() { return ""; },
   };
   registry.register(echo);
-  return { session, registry, model: "glm-4-flash" };
+  return {
+    session,
+    registry,
+    model: "glm-4-flash",
+    skills: [{ name: "demo", description: "演示", body: "演示指令", path: "/p" }],
+  };
 }
 
 describe("handleCommand", () => {
@@ -69,5 +74,23 @@ describe("handleCommand", () => {
   it("/help 列出 /init", () => {
     const r = handleCommand("/help", makeCtx());
     expect(r.message).toContain("/init");
+  });
+
+  it("/skills 列出可用 skill", () => {
+    const r = handleCommand("/skills", makeCtx());
+    expect(r.handled).toBe(true);
+    expect(r.message).toContain("demo");
+  });
+  it("/skill <name> 返回 runPrompt=body", () => {
+    expect(handleCommand("/skill demo", makeCtx()).runPrompt).toBe("演示指令");
+  });
+  it("/skill 未知名给提示", () => {
+    expect(handleCommand("/skill nope", makeCtx()).message).toMatch(/未找到/);
+  });
+  it("/skill 无参数给用法", () => {
+    expect(handleCommand("/skill", makeCtx()).message).toMatch(/用法/);
+  });
+  it("/help 含 /skill", () => {
+    expect(handleCommand("/help", makeCtx()).message).toContain("/skill");
   });
 });
